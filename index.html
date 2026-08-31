@@ -5316,7 +5316,8 @@ function makeAxis(label){
     const names = ['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
     return names[+mo] + ' ' + y.slice(2);
   });
-  new Chart(document.getElementById('ch-meses'), {
+  window._chMesesKeys = meses.map(m=>m.mes); // e.g. ["2025-01", ...]
+  window._chMeses = new Chart(document.getElementById('ch-meses'), {
     type: 'bar',
     data: {
       labels,
@@ -5705,6 +5706,23 @@ function _updateResumen(rows){
     recStates.forEach(function(s,i){
       leg.innerHTML+='<div class="donut-legend-row"><div class="donut-legend-dot" style="background:'+recColors[i]+'"></div><span class="donut-legend-label">'+s+'</span><span class="donut-legend-val">'+newRecVals[i]+'</span></div>';
     });
+  }
+
+  // Barras — bautismos por mes
+  if(window._chMeses && window._chMesesKeys){
+    window._chMeses.data.datasets[0].data = window._chMesesKeys.map(function(key){
+      return rows.filter(function(r){
+        var p=r.fecha.split('/'); // dd/mm/yyyy
+        return p.length===3 && (p[2]+'-'+(p[1].length===1?'0':'')+p[1])===key && r.sexo==='Hombre';
+      }).length;
+    });
+    window._chMeses.data.datasets[1].data = window._chMesesKeys.map(function(key){
+      return rows.filter(function(r){
+        var p=r.fecha.split('/');
+        return p.length===3 && (p[2]+'-'+(p[1].length===1?'0':'')+p[1])===key && r.sexo==='Mujer';
+      }).length;
+    });
+    window._chMeses.update();
   }
 
   // Barra — edad + sexo
