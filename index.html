@@ -508,7 +508,7 @@ table.data-table tr:hover td { background: rgba(27,58,92,.04); }
   </nav>
   <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
     <button class="tab-btn" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:13px;font-weight:600;cursor:pointer" onclick="openReporteModal()">📄 Reporte barrio</button>
-    <button style="background:#16a34a;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:13px;font-weight:600;cursor:pointer" onclick="document.getElementById('excel-input').click()">⬆ Actualizar datos</button>
+    <button style="background:#16a34a;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:13px;font-weight:600;cursor:pointer" onclick="(function(){var p=prompt('Contraseña para actualizar datos:');if(p==='m7595052'){document.getElementById('excel-input').click();}else if(p!==null){alert('Contraseña incorrecta.');}})()">⬆ Actualizar datos</button>
     <input type="file" id="excel-input" accept=".xlsx,.xls" style="display:none" onchange="procesarNuevoExcel(this)">
   </div>
 </header>
