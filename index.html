@@ -5339,7 +5339,7 @@ function makeAxis(label){
   const recStates = ['Activa','Vence pronto','Vencida <1 mes','Vencida <3 meses','Vencida >3 meses','Sin recomendación'];
   const recColors = [C.recActiva, C.recVenceProto, C.recVen1, C.recVen3, C.recVenMas, C.recSin];
   const recVals = recStates.map(s => D.rec_global[s] || 0);
-  new Chart(document.getElementById('ch-rec-donut'), {
+  window._chRecDonut = new Chart(document.getElementById('ch-rec-donut'), {
     type:'doughnut',
     data:{ labels:recStates, datasets:[{ data:recVals, backgroundColor:recColors, borderWidth:2, borderColor:'var(--card)', hoverOffset:6 }] },
     options:{
@@ -5357,7 +5357,7 @@ function makeAxis(label){
 
   // 3. Edad + sexo
   const rangos = D.rangos_edad;
-  new Chart(document.getElementById('ch-edad'), {
+  window._chEdad = new Chart(document.getElementById('ch-edad'), {
     type:'bar',
     data:{
       labels: rangos.map(r => r.replace(' (≤11)','').replace(' (12–17)','').replace(' (18–30)','').replace(' (31–60)','').replace(' (61+)','')),
@@ -5661,6 +5661,88 @@ function switchTab(id, btn){
 // ─────────────────────────────────────────────────────────────────────
 // GLOBAL FILTERS (stub - could update KPIs + charts based on selection)
 // ─────────────────────────────────────────────────────────────────────
+function _updateResumen(rows){
+  var total   = rows.length;
+  var hombres = rows.filter(function(r){ return r.sexo==='Hombre'; }).length;
+  var mujeres = rows.filter(function(r){ return r.sexo==='Mujer'; }).length;
+  var conLlam = rows.filter(function(r){ return r.llamamiento && r.llamamiento!=='—'; }).length;
+  var recAct  = rows.filter(function(r){ return r.estadoRec==='Activa'; }).length;
+  var conRec  = rows.filter(function(r){ return r.estadoRec!=='Sin recomendación'; }).length;
+  var mas6m   = rows.filter(function(r){ return r.meses>=6; }).length;
+  var sinInd  = rows.filter(function(r){ return r.meses>=6 && r.llamamiento==='—' && r.estadoRec==='Sin recomendación'; }).length;
+  var invest  = rows.filter(function(r){ return r.investido==='Sí'; }).length;
+  var sellad  = rows.filter(function(r){ return r.sellado==='Sí'; }).length;
+
+  // KPI cards
+  document.getElementById('kpi-total').textContent = total;
+  document.getElementById('kpi-hm').textContent    = hombres+' hombres · '+mujeres+' mujeres';
+  document.getElementById('kpi-llam').textContent  = conLlam;
+  document.getElementById('kpi-llam-pct').textContent = total>0 ? (Math.round(conLlam/total*1000)/10)+'% del total' : '—';
+  document.getElementById('kpi-rec').textContent   = recAct;
+  document.getElementById('kpi-rec-pct').textContent  = total>0 ? (Math.round(recAct/total*1000)/10)+'% del total' : '—';
+  document.getElementById('kpi-alerta').textContent= sinInd;
+  var alertCard = document.getElementById('kpi-alerta').closest ? document.getElementById('kpi-alerta').closest('.kpi-card') : null;
+  if(alertCard){ alertCard.querySelector('.kpi-sub').textContent = 'de '+mas6m+' bautizados hace >6 meses'; }
+  document.getElementById('kpi-inv').textContent   = invest;
+
+  // Donut — recomendación
+  var recStates = ['Activa','Vence pronto','Vencida <1 mes','Vencida <3 meses','Vencida >3 meses','Sin recomendación'];
+  var recColors = [C.recActiva, C.recVenceProto, C.recVen1, C.recVen3, C.recVenMas, C.recSin];
+  var newRecVals = recStates.map(function(s){
+    return rows.filter(function(r){ return r.estadoRec===s; }).length;
+  });
+  if(window._chRecDonut){
+    window._chRecDonut.data.datasets[0].data = newRecVals;
+    var _tot = total;
+    window._chRecDonut.options.plugins.tooltip.callbacks.label = function(ctx){
+      return ' '+ctx.label+': '+ctx.raw+(_tot>0?' ('+Math.round(ctx.raw/_tot*100)+'%)':'');
+    };
+    window._chRecDonut.update();
+  }
+  var leg = document.getElementById('rec-legend');
+  if(leg){
+    leg.innerHTML='';
+    recStates.forEach(function(s,i){
+      leg.innerHTML+='<div class="donut-legend-row"><div class="donut-legend-dot" style="background:'+recColors[i]+'"></div><span class="donut-legend-label">'+s+'</span><span class="donut-legend-val">'+newRecVals[i]+'</span></div>';
+    });
+  }
+
+  // Barra — edad + sexo
+  if(window._chEdad){
+    var rangos = D.rangos_edad;
+    window._chEdad.data.datasets[0].data = rangos.map(function(r){
+      return rows.filter(function(row){ return row.sexo==='Hombre' && row.rango_edad===r; }).length;
+    });
+    window._chEdad.data.datasets[1].data = rangos.map(function(r){
+      return rows.filter(function(row){ return row.sexo==='Mujer' && row.rango_edad===r; }).length;
+    });
+    window._chEdad.update();
+  }
+
+  // Funnel
+  var fw = document.getElementById('funnel-wrap');
+  if(fw){
+    var fSteps = [
+      { label:'Bautizados',        val:total,   color:C.navy },
+      { label:'Con recomendación', val:conRec,  color:C.navyLight },
+      { label:'Rec. activa',       val:recAct,  color:C.green },
+      { label:'Con llamamiento',   val:conLlam, color:C.gold },
+      { label:'Investidos',        val:invest,  color:C.greenLight },
+      { label:'Sellados',          val:sellad,  color:C.grey },
+    ];
+    var fMax = fSteps[0].val || 1;
+    fw.innerHTML='';
+    fSteps.forEach(function(s){
+      var pct = Math.max(3, s.val/fMax*100);
+      fw.innerHTML+='<div class="funnel-row">'
+        +'<div class="funnel-label">'+s.label+'</div>'
+        +'<div class="funnel-bar-wrap"><div class="funnel-bar" style="width:'+pct+'%;background:'+s.color+'">'+(s.val>0?s.val:'')+'</div></div>'
+        +'<div class="funnel-count">'+s.val+'</div>'
+        +'</div>';
+    });
+  }
+}
+
 function applyFilters(){
   const b = document.getElementById('f-barrio').value;
   const s = document.getElementById('f-sexo').value;
@@ -5673,12 +5755,14 @@ function applyFilters(){
     (!e || r.rango_edad===e)
   );
   document.getElementById('filter-count').textContent =
-    (b||s||e) ? `${filtered.length} de 207 personas` : '';
+    (b||s||e) ? `${filtered.length} de ${D.tabla_completa.length} personas` : '';
+  _updateResumen(filtered);
   renderTabla();
 }
 function resetFilters(){
   ['f-barrio','f-sexo','f-edad'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('filter-count').textContent='';
+  _updateResumen(D.tabla_completa);
   renderTabla();
 }
 
