@@ -1050,6 +1050,12 @@ table.data-table tr:hover td { background: rgba(27,58,92,.04); }
         <option value="Hombre">Solo hombres</option>
         <option value="Mujer">Solo mujeres</option>
       </select>
+      <select id="min-orden" onchange="renderMinistracion()">
+        <option value="urgencia">Ordenar: mayor urgencia</option>
+        <option value="antiguos">Ordenar: más antiguos primero</option>
+        <option value="nuevos">Ordenar: más nuevos primero</option>
+        <option value="nombre">Ordenar: nombre A–Z</option>
+      </select>
       <span class="tcount" id="min-count"></span>
       <button onclick="exportMinPDF()" style="margin-left:auto;padding:6px 14px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">
         ⬇ PDF con notas
@@ -7636,8 +7642,13 @@ function renderMinistracion() {
     lista.push({ row: r, cats: cats, urgMax: urgMax });
   });
 
-  // Ordenar: mayor urgencia primero, luego por meses desc
+  // Ordenar según selección
+  var orden = document.getElementById('min-orden').value;
   lista.sort(function(a, b) {
+    if (orden === 'antiguos') return b.row.meses - a.row.meses;
+    if (orden === 'nuevos')   return a.row.meses - b.row.meses;
+    if (orden === 'nombre')   return a.row.nombre.localeCompare(b.row.nombre, 'es');
+    // urgencia (default): mayor urgencia primero, luego más antiguos
     if (b.urgMax !== a.urgMax) return b.urgMax - a.urgMax;
     return b.row.meses - a.row.meses;
   });
@@ -7695,6 +7706,13 @@ function exportMinPDF() {
   var barrio = document.getElementById('min-barrio').value;
   var catFilt = document.getElementById('min-cat').value;
   var sexoFilt = document.getElementById('min-sexo').value;
+  var orden = document.getElementById('min-orden').value;
+
+  // Si no hay barrio elegido, confirmar antes de generar estaca completa
+  if (!barrio) {
+    var ok = confirm('No hay barrio seleccionado.\n\n¿Generar PDF de la Estaca completa?\nEsto puede ser muy extenso.\n\nPresioná Cancelar, elegí un barrio en el filtro y volvé a hacer clic para generar solo ese barrio.');
+    if (!ok) return;
+  }
 
   var lista = [];
   D.tabla_completa.forEach(function(r) {
@@ -7707,6 +7725,9 @@ function exportMinPDF() {
     lista.push({ row: r, cats: cats, urgMax: urgMax });
   });
   lista.sort(function(a, b) {
+    if (orden === 'antiguos') return b.row.meses - a.row.meses;
+    if (orden === 'nuevos')   return a.row.meses - b.row.meses;
+    if (orden === 'nombre')   return a.row.nombre.localeCompare(b.row.nombre, 'es');
     if (b.urgMax !== a.urgMax) return b.urgMax - a.urgMax;
     return b.row.meses - a.row.meses;
   });
