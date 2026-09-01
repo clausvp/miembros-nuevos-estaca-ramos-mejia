@@ -40,6 +40,8 @@
   --badge-alert-text: #7A1B1B;
   --badge-none: #EBEBEB;
   --badge-none-text: #555;
+  --surface: #FFFFFF;
+  --surface2: #F0EDE7;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -58,6 +60,8 @@
     --badge-alert-text: #F08080;
     --badge-none: #2A3440;
     --badge-none-text: #8EAAC0;
+    --surface: #1E3346;
+    --surface2: #243D52;
   }
 }
 :root[data-theme="dark"] {
@@ -76,6 +80,8 @@
   --badge-alert-text: #F08080;
   --badge-none: #2A3440;
   --badge-none-text: #8EAAC0;
+  --surface: #1E3346;
+  --surface2: #243D52;
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 body {
@@ -1103,11 +1109,11 @@ table.data-table tr:hover td { background: rgba(27,58,92,.04); }
     <div style="margin-bottom:16px">
       <label style="font-size:13px;font-weight:600;display:block;margin-bottom:8px">Incluir en el reporte:</label>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <label style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" id="rpt-kpi" checked> KPIs</label>
-        <label style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" id="rpt-baut" checked> Bautismos por mes</label>
-        <label style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" id="rpt-sac" checked> Sacerdocio</label>
-        <label style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" id="rpt-templo" checked> Templo</label>
-        <label style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" id="rpt-alertas" checked> Personas en alerta</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:6px 10px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text)"><input type="checkbox" id="rpt-kpi" checked> KPIs</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:6px 10px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text)"><input type="checkbox" id="rpt-baut" checked> Bautismos por mes</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:6px 10px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text)"><input type="checkbox" id="rpt-sac" checked> Sacerdocio</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:6px 10px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text)"><input type="checkbox" id="rpt-templo" checked> Templo</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:6px 10px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text)"><input type="checkbox" id="rpt-alertas" checked> Personas en alerta</label>
       </div>
     </div>
     <div id="reporte-preview" style="background:var(--bg);border-radius:10px;padding:14px;font-size:12px;color:var(--text-muted);min-height:40px;margin-bottom:20px">Seleccioná al menos un barrio.</div>
@@ -6372,7 +6378,7 @@ function openReporteModal() {
     if (cont && !cont.children.length) {
       D.barrios.forEach(function(b) {
         var lbl = document.createElement('label');
-        lbl.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 10px;border-radius:8px;border:1.5px solid var(--border)';
+        lbl.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 10px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text)';
         var cb = document.createElement('input');
         cb.type = 'checkbox'; cb.value = b; cb.checked = true;
         cb.className = 'rpt-barrio-cb';
@@ -6394,8 +6400,9 @@ function syncTodosBtn() {
   var cbs = document.querySelectorAll('.rpt-barrio-cb');
   var all = Array.from(cbs).every(function(c){ return c.checked; });
   var btn = document.getElementById('btn-todos-barrios');
-  btn.style.background = all ? 'var(--accent)' : 'transparent';
+  btn.style.background = all ? 'var(--accent)' : 'var(--surface2)';
   btn.style.color = all ? '#fff' : 'var(--accent)';
+  btn.style.border = '1.5px solid var(--accent)';
 }
 function toggleTodosBarrios() {
   var cbs = document.querySelectorAll('.rpt-barrio-cb');
