@@ -5424,12 +5424,13 @@ function makeAxis(label){
 (function buildUnidades(){
   const us = D.unidades;
   const barrios = us.map(u=>u.barrio);
+  window._currentUnidades = D.unidades;
 
   // Heatmap table — rendered via reusable function (supports sorting)
   renderHeatBody(D.unidades);
 
   // Barras H/M por barrio
-  new Chart(document.getElementById('ch-barrio-hm'), {
+  window._chBarrioHm = new Chart(document.getElementById('ch-barrio-hm'), {
     type:'bar',
     data:{
       labels:barrios,
@@ -5451,7 +5452,7 @@ function makeAxis(label){
   // Rec por barrio (stacked)
   const recStates = ['Activa','Vence pronto','Vencida <1 mes','Vencida <3 meses','Vencida >3 meses','Sin recomendación'];
   const recColors = [C.recActiva, C.recVenceProto, C.recVen1, C.recVen3, C.recVenMas, C.recSin];
-  new Chart(document.getElementById('ch-barrio-rec'), {
+  window._chBarrioRec = new Chart(document.getElementById('ch-barrio-rec'), {
     type:'bar',
     data:{
       labels:barrios,
@@ -5474,7 +5475,7 @@ function makeAxis(label){
   });
 
   // % llamamiento
-  new Chart(document.getElementById('ch-barrio-llam'), {
+  window._chBarrioLlam = new Chart(document.getElementById('ch-barrio-llam'), {
     type:'bar',
     data:{
       labels:barrios,
@@ -5491,7 +5492,7 @@ function makeAxis(label){
   });
 
   // % rec activa
-  new Chart(document.getElementById('ch-barrio-recpct'), {
+  window._chBarrioRecpct = new Chart(document.getElementById('ch-barrio-recpct'), {
     type:'bar',
     data:{
       labels:barrios,
@@ -5517,7 +5518,7 @@ function makeAxis(label){
   const sacVals = oficios.map(o => D.sacerdocio_global[o]||0);
 
   // Donut
-  new Chart(document.getElementById('ch-sac-donut'), {
+  window._chSacDonut = new Chart(document.getElementById('ch-sac-donut'), {
     type:'doughnut',
     data:{ labels:oficios, datasets:[{ data:sacVals, backgroundColor:sacColors, borderWidth:2, borderColor:'var(--card)', hoverOffset:6 }] },
     options:{
@@ -5532,7 +5533,7 @@ function makeAxis(label){
 
   // Stacked por barrio
   const barrios = D.barrios;
-  new Chart(document.getElementById('ch-sac-barrio'), {
+  window._chSacBarrio = new Chart(document.getElementById('ch-sac-barrio'), {
     type:'bar',
     data:{
       labels:barrios,
@@ -5782,12 +5783,262 @@ function _updateResumen(rows){
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────
+// COMPUTE UNIDADES FROM FILTERED ROWS
+// ─────────────────────────────────────────────────────────────────────
+function _computeUnidades(rows) {
+  var byBarrio = {};
+  rows.forEach(function(r) {
+    if (!byBarrio[r.barrio]) {
+      byBarrio[r.barrio] = { barrio: r.barrio, total:0, hombres:0, mujeres:0,
+        con_llamamiento:0, rec_activa:0, h_melquisedec:0, h_aaronico:0, h_no_ordenado:0, rec:{} };
+    }
+    var u = byBarrio[r.barrio];
+    u.total++;
+    if (r.sexo==='Hombre') u.hombres++; else u.mujeres++;
+    if (r.llamamiento && r.llamamiento !== '—') u.con_llamamiento++;
+    if (r.estadoRec === 'Activa') u.rec_activa++;
+    if (r.sexo === 'Hombre') {
+      if (r.sacerdocio === 'Melquisedec') u.h_melquisedec++;
+      else if (r.sacerdocio === 'Aarónico') u.h_aaronico++;
+      else u.h_no_ordenado++;
+    }
+    var rs = r.estadoRec || 'Sin recomendación';
+    u.rec[rs] = (u.rec[rs]||0) + 1;
+  });
+  return D.barrios.filter(function(b){ return byBarrio[b]; }).map(function(b){ return byBarrio[b]; });
+}
+
+function _updateUnidadAlertas(us) {
+  var totalEstaca   = us.reduce(function(s,u){ return s+u.total; }, 0);
+  if (!totalEstaca) return;
+  var pctLlamEstaca = us.reduce(function(s,u){ return s+u.con_llamamiento; }, 0) / totalEstaca;
+  var pctRecEstaca  = us.reduce(function(s,u){ return s+u.rec_activa; }, 0) / totalEstaca;
+  var nSinLlam=0, nLlamBajo=0, nLlamMedio=0, nRecBaja=0;
+  var barrioPins = {};
+  us.forEach(function(u) {
+    var pL = u.total ? u.con_llamamiento / u.total : 0;
+    var pR = u.total ? u.rec_activa      / u.total : 0;
+    var pins = [];
+    if (u.con_llamamiento === 0) { nSinLlam++; pins.push({ track:'sin-llam', label:'🔴 Sin llamamientos', color:'#DC2626' }); }
+    else if (pL < pctLlamEstaca * 0.5) { nLlamBajo++; pins.push({ track:'llam-bajo', label:'🟠 Llam. muy bajo ('+Math.round(pL*100)+'% vs '+Math.round(pctLlamEstaca*100)+'%)', color:'#D97706' }); }
+    else if (pL < pctLlamEstaca) { nLlamMedio++; pins.push({ track:'llam-medio', label:'🟡 Llam. bajo ('+Math.round(pL*100)+'% vs '+Math.round(pctLlamEstaca*100)+'%)', color:'#CA8A04' }); }
+    if (pR < pctRecEstaca * 0.5) { nRecBaja++; pins.push({ track:'rec-baja', label:'🔴 Rec. muy baja ('+Math.round(pR*100)+'% vs '+Math.round(pctRecEstaca*100)+'%)', color:'#DC2626' }); }
+    else if (pR < pctRecEstaca) { nRecBaja++; pins.push({ track:'rec-baja', label:'🟠 Rec. bajo promedio ('+Math.round(pR*100)+'% vs '+Math.round(pctRecEstaca*100)+'%)', color:'#D97706' }); }
+    if (pins.length > 0) barrioPins[u.barrio] = { u:u, pins:pins, pL:pL, pR:pR };
+  });
+  var nAlerta = Object.keys(barrioPins).length;
+  var banner = document.getElementById('unidad-alertas');
+  if (banner) banner.innerHTML = '<div style="display:flex;gap:10px;flex-wrap:wrap">'
+    + mkChip('🔴', nSinLlam,  'Barrios sin ningún llamamiento asignado',         '#FEE2E2', '#DC2626')
+    + mkChip('🟠', nLlamBajo,  'Barrios con llam. muy por debajo del promedio',  '#FFF3E0', '#D97706')
+    + mkChip('🟡', nLlamMedio, 'Barrios con llam. levemente bajo el promedio',   '#FEFCE8', '#CA8A04')
+    + mkChip('🟠', nRecBaja,   'Barrios con rec. activa bajo el promedio de estaca','#FFF3E0', '#D97706')
+    + '</div>';
+  var sub = document.getElementById('unidad-alerta-sub');
+  if (sub) sub.textContent = nAlerta + ' barrio' + (nAlerta!==1?'s':'') + ' con indicadores bajo el promedio de estaca · '
+    + Math.round(pctLlamEstaca*100) + '% llam. · ' + Math.round(pctRecEstaca*100) + '% rec. activa';
+  window._unidadAlertaData = barrioPins;
+  window._unidadAlertaTrack = 'all';
+  document.querySelectorAll('[data-ulevel]').forEach(function(b){ b.classList.toggle('active', b.dataset.ulevel === 'all'); });
+  renderUnidadAlertaBody();
+}
+
+function _updateUnidad(rows) {
+  var us = _computeUnidades(rows);
+  window._currentUnidades = us.length ? us : D.unidades;
+  var barrios = window._currentUnidades.map(function(u){ return u.barrio; });
+  var recStates = ['Activa','Vence pronto','Vencida <1 mes','Vencida <3 meses','Vencida >3 meses','Sin recomendación'];
+  if (window._chBarrioHm) {
+    window._chBarrioHm.data.labels = barrios;
+    window._chBarrioHm.data.datasets[0].data = window._currentUnidades.map(function(u){ return u.hombres; });
+    window._chBarrioHm.data.datasets[1].data = window._currentUnidades.map(function(u){ return u.mujeres; });
+    window._chBarrioHm.update();
+  }
+  if (window._chBarrioRec) {
+    window._chBarrioRec.data.labels = barrios;
+    window._chBarrioRec.data.datasets.forEach(function(ds, i) {
+      ds.data = window._currentUnidades.map(function(u){ return (u.rec[recStates[i]])||0; });
+    });
+    window._chBarrioRec.update();
+  }
+  if (window._chBarrioLlam) {
+    window._chBarrioLlam.data.labels = barrios;
+    window._chBarrioLlam.data.datasets[0].data = window._currentUnidades.map(function(u){ return u.total ? +(u.con_llamamiento/u.total*100).toFixed(1) : 0; });
+    window._chBarrioLlam.update();
+  }
+  if (window._chBarrioRecpct) {
+    window._chBarrioRecpct.data.labels = barrios;
+    window._chBarrioRecpct.data.datasets[0].data = window._currentUnidades.map(function(u){ return u.total ? +(u.rec_activa/u.total*100).toFixed(1) : 0; });
+    window._chBarrioRecpct.update();
+  }
+  renderHeatBody(window._currentUnidades);
+  _updateUnidadAlertas(window._currentUnidades);
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// COMPUTE SACERDOCIO FROM FILTERED ROWS
+// ─────────────────────────────────────────────────────────────────────
+function _computeSacerdocio(rows) {
+  var hombres = rows.filter(function(r){ return r.sexo === 'Hombre'; });
+  var oficios = D.oficios;
+  var sacGlobal = {};
+  var sacBarrio = {};
+  oficios.forEach(function(o){ sacGlobal[o] = 0; });
+  hombres.forEach(function(r) {
+    var oficio = (r.oficio && r.oficio !== '—') ? r.oficio : 'No ordenado';
+    if (!sacBarrio[r.barrio]) {
+      sacBarrio[r.barrio] = {};
+      oficios.forEach(function(o){ sacBarrio[r.barrio][o] = 0; });
+    }
+    sacGlobal[oficio] = (sacGlobal[oficio]||0) + 1;
+    sacBarrio[r.barrio][oficio] = (sacBarrio[r.barrio][oficio]||0) + 1;
+  });
+  return { sacGlobal: sacGlobal, sacBarrio: sacBarrio };
+}
+
+function _updateSacerdocio(rows) {
+  var sac = _computeSacerdocio(rows);
+  window._currentSacBarrio = Object.keys(sac.sacBarrio).length ? sac.sacBarrio : null;
+  window._currentSacGlobal = sac.sacGlobal;
+  var oficios = D.oficios;
+  var sacGlobal = sac.sacGlobal;
+  var sacBarrio = window._currentSacBarrio || D.sacerdocio_barrio;
+  var barrios = D.barrios.filter(function(b){ return sacBarrio[b]; });
+  var sacVals = oficios.map(function(o){ return sacGlobal[o]||0; });
+  if (window._chSacDonut) {
+    window._chSacDonut.data.datasets[0].data = sacVals;
+    window._chSacDonut.update();
+    var sl = document.getElementById('sac-legend');
+    if (sl) { var dots = sl.querySelectorAll('.donut-legend-val'); sacVals.forEach(function(v,i){ if(dots[i]) dots[i].textContent=v; }); }
+  }
+  if (window._chSacBarrio) {
+    window._chSacBarrio.data.labels = barrios;
+    window._chSacBarrio.data.datasets.forEach(function(ds,i){
+      ds.data = barrios.map(function(b){ return (sacBarrio[b]||{})[oficios[i]]||0; });
+    });
+    window._chSacBarrio.update();
+  }
+  renderSacBody();
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// SACERDOCIO ALERTAS (callable for filter updates)
+// ─────────────────────────────────────────────────────────────────────
+function _updateSacAlertas(rows) {
+  var hombres = rows.filter(function(p){ return p.sexo === 'Hombre'; });
+  var aaAmarillo=[], aaNaranja=[], aaRojo=[], mqNaranja=[], mqRojo=[];
+  hombres.forEach(function(p) {
+    var meses=p.meses||0, sac=p.sacerdocio||'';
+    var tieneAa = sac==='Aarónico'||sac==='Melquisedec';
+    var tieneMq = sac==='Melquisedec';
+    if (!tieneAa) { if(meses>=6) aaRojo.push(p); else if(meses>=3) aaNaranja.push(p); else if(meses>=1) aaAmarillo.push(p); }
+    else if (!tieneMq) { if(meses>=15) mqRojo.push(p); else if(meses>=12) mqNaranja.push(p); }
+  });
+  var total_alerta = aaRojo.length+aaNaranja.length+aaAmarillo.length+mqRojo.length+mqNaranja.length;
+  var banner = document.getElementById('sac-alertas');
+  if (!banner) return;
+  if (total_alerta === 0) {
+    banner.innerHTML = '';
+    var sub0 = document.getElementById('sac-alerta-sub'); if(sub0) sub0.textContent='';
+    window._sacAlertaRows = []; renderSacAlertaBody(); return;
+  }
+  banner.innerHTML = '<div style="display:flex;gap:10px;flex-wrap:wrap">'
+    + mkChip('🔴', aaRojo.length,    'Sin Aarónico (crítico &gt;6 m)',          '#FEE2E2', '#DC2626')
+    + mkChip('🟠', aaNaranja.length, 'Sin Aarónico (atención 3–6 m)',           '#FFF3E0', '#D97706')
+    + mkChip('🟡', aaAmarillo.length,'Sin Aarónico (seguimiento 1–3 m)',        '#FEFCE8', '#CA8A04')
+    + mkChip('🔴', mqRojo.length,    'Con Aarónico, sin Melquisedec (&gt;15 m)','#FEE2E2', '#DC2626')
+    + mkChip('🟠', mqNaranja.length, 'Con Aarónico, sin Melquisedec (12–15 m)', '#FFF3E0', '#D97706')
+    + '</div>';
+  document.getElementById('sac-alerta-sub').textContent = total_alerta+' persona'+(total_alerta!==1?'s':'')+' en situación de seguimiento pastoral';
+  window._sacAlertaRows = [];
+  function addR(list,track,sit,niv,color,bg){ list.forEach(function(p){ window._sacAlertaRows.push({nombre:p.nombre,barrio:p.barrio,meses:p.meses,situacion:sit,nivel:niv,track:track,color:color,bg:bg}); }); }
+  addR(aaRojo,    'aa-rojo',    'Sin Aarónico',               '🔴 Crítico ('+aaRojo.length+')',    '#DC2626','#FEE2E2');
+  addR(aaNaranja, 'aa-naranja', 'Sin Aarónico',               '🟠 Atención ('+aaNaranja.length+')', '#D97706','#FFF3E0');
+  addR(aaAmarillo,'aa-amarillo','Sin Aarónico',               '🟡 Seguimiento ('+aaAmarillo.length+')','#CA8A04','#FEFCE8');
+  addR(mqRojo,    'mq-rojo',    'Con Aarónico, sin Melquisedec','🔴 Crítico ('+mqRojo.length+')',   '#DC2626','#FEE2E2');
+  addR(mqNaranja, 'mq-naranja', 'Con Aarónico, sin Melquisedec','🟠 Atención ('+mqNaranja.length+')','#D97706','#FFF3E0');
+  window._sacAlertaRows.sort(function(a,b){ return b.meses-a.meses; });
+  window._sacAlertaTrack = 'all';
+  document.querySelectorAll('.sac-filter-btn').forEach(function(b){ b.classList.toggle('active', b.dataset.track==='all'); });
+  renderSacAlertaBody();
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// TEMPLO ALERTAS (callable for filter updates)
+// ─────────────────────────────────────────────────────────────────────
+function _updateTemploAlertas(rows) {
+  var nombres = new Set(rows.map(function(r){ return r.nombre; }));
+  var personas = DT.tabla_templo.filter(function(p){ return nombres.has(p.nombre); });
+  var criticoUrgente=[], critico=[], atencion3=[], atencion1=[], atencionProx=[];
+  personas.forEach(function(p) {
+    var meses=p.meses||0, nivel=p.nivelTemplo||'', estado=p.estadoRec||'';
+    if (nivel==='Crítico') { if(meses>=12) criticoUrgente.push(p); else critico.push(p); }
+    else if (nivel==='Atención') {
+      if(estado==='Vencida >3 meses') atencion3.push(p);
+      else if(estado==='Vencida <3 meses'||estado==='Vencida <1 mes') atencion1.push(p);
+      else if(estado==='Vence pronto') atencionProx.push(p);
+    }
+  });
+  var total_alerta = criticoUrgente.length+critico.length+atencion3.length+atencion1.length+atencionProx.length;
+  var banner = document.getElementById('templo-alertas');
+  if (!banner) return;
+  banner.innerHTML = '<div style="display:flex;gap:10px;flex-wrap:wrap">'
+    + mkChip('🔴', criticoUrgente.length,'Crítico urgente — sin rec. &gt;12 m bautizados','#FEE2E2','#DC2626')
+    + mkChip('🔴', critico.length,       'Crítico — sin recomendación',                   '#FEE2E2','#DC2626')
+    + mkChip('🟠', atencion3.length,     'Rec. vencida &gt;3 meses',                      '#FFF3E0','#D97706')
+    + mkChip('🟠', atencion1.length,     'Rec. vencida &lt;3 meses',                      '#FFF3E0','#D97706')
+    + mkChip('🟡', atencionProx.length,  'Rec. vence pronto',                             '#FEFCE8','#CA8A04')
+    + '</div>';
+  var sub = document.getElementById('templo-alerta-sub');
+  if(sub) sub.textContent = total_alerta+' persona'+(total_alerta!==1?'s':'')+' requieren atención pastoral';
+  window._temploAlertaRows = [];
+  function addT(list,track,nivel,color,bg){ list.forEach(function(p){ window._temploAlertaRows.push({nombre:p.nombre,barrio:p.barrio,sexo:p.sexo,meses:p.meses,estadoRec:p.estadoRec,nivel:nivel,track:track,color:color,bg:bg}); }); }
+  addT(criticoUrgente,'critico-urgente','🔴 Crítico urgente','#DC2626','#FEE2E2');
+  addT(critico,       'critico',        '🔴 Crítico',        '#DC2626','#FEE2E2');
+  addT(atencion3,     'atencion-3',     '🟠 Vencida >3 m',  '#D97706','#FFF3E0');
+  addT(atencion1,     'atencion-1',     '🟠 Vencida <3 m',  '#D97706','#FFF3E0');
+  addT(atencionProx,  'atencion-prox',  '🟡 Vence pronto',  '#CA8A04','#FEFCE8');
+  window._temploAlertaRows.sort(function(a,b){ return b.meses-a.meses; });
+  window._temploAlertaTrack = 'all';
+  document.querySelectorAll('[data-tlevel]').forEach(function(b){ b.classList.toggle('active', b.dataset.tlevel==='all'); });
+  renderTemploAlertaBody();
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// GLOBAL FILTERS
+// ─────────────────────────────────────────────────────────────────────
+function _applyAllTabFilters(filtered, b, s) {
+  // Sync Tabla Completa local filters
+  document.getElementById('tb-barrio').value = b;
+  var tbSexo = document.getElementById('tb-sexo');
+  if (tbSexo) tbSexo.value = s;
+  // Sync Templo tabla barrio filter
+  var ttBarrio = document.getElementById('tt-filtro-barrio');
+  if (ttBarrio) ttBarrio.value = b;
+  // Lista de Alerta: filter from D.alerta_lista
+  alertaData = D.alerta_lista.filter(function(r){
+    return (!b || r.barrio===b) && (!s || r.sexo===s);
+  });
+  alertaPage = 0;
+  renderAlerta();
+  // Tabla Completa
+  renderTabla();
+  // Templo tabla
+  renderTemploTabla();
+  // Por Unidad (charts + heat + alertas)
+  _updateUnidad(filtered);
+  // Sacerdocio (charts + table + alertas)
+  _updateSacerdocio(filtered);
+  _updateSacAlertas(filtered);
+  // Templo alertas
+  _updateTemploAlertas(filtered);
+}
+
 function applyFilters(){
   const b = document.getElementById('f-barrio').value;
   const s = document.getElementById('f-sexo').value;
   const e = document.getElementById('f-edad').value;
-  // Sync tabla filters
-  if(b){ document.getElementById('tb-barrio').value=b; }
   const filtered = D.tabla_completa.filter(r =>
     (!b || r.barrio===b) &&
     (!s || r.sexo===s) &&
@@ -5796,13 +6047,15 @@ function applyFilters(){
   document.getElementById('filter-count').textContent =
     (b||s||e) ? `${filtered.length} de ${D.tabla_completa.length} personas` : '';
   _updateResumen(filtered);
-  renderTabla();
+  _applyAllTabFilters(filtered, b, s);
 }
 function resetFilters(){
   ['f-barrio','f-sexo','f-edad'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('filter-count').textContent='';
   _updateResumen(D.tabla_completa);
-  renderTabla();
+  window._currentUnidades = D.unidades;
+  window._currentSacBarrio = null;
+  _applyAllTabFilters(D.tabla_completa, '', '');
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -5951,7 +6204,7 @@ function renderHeatBody(data) {
 function sortHeat(col) {
   if (heatSort.col === col) heatSort.dir *= -1;
   else { heatSort.col = col; heatSort.dir = -1; }
-  renderHeatBody(D.unidades);
+  renderHeatBody(window._currentUnidades || D.unidades);
 }
 
 
@@ -5962,10 +6215,12 @@ var sacSort = { col: 'total', dir: -1 };
 
 function renderSacBody() {
   if (!sacSort) sacSort = { col: 'total', dir: -1 };
-  var barrios = D.barrios;
+  var sacBarrio = window._currentSacBarrio || D.sacerdocio_barrio;
+  var barrios = D.barrios.filter(function(b){ return sacBarrio[b]; });
+  if (!barrios.length) barrios = D.barrios;
   // Build flat data array
   var rows = barrios.map(function(b) {
-    var sd = D.sacerdocio_barrio[b];
+    var sd = sacBarrio[b] || {};
     var melq = sd['Melquisedec – Élder'] || 0;
     var pres = sd['Aarónico – Presbítero'] || 0;
     var maes = sd['Aarónico – Maestro'] || 0;
