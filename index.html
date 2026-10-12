@@ -523,7 +523,7 @@ table.data-table tr:hover td { background: rgba(27,58,92,.04); }
   </nav>
   <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
     <button class="tab-btn" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:13px;font-weight:600;cursor:pointer" onclick="openReporteModal()">📄 Reporte barrio</button>
-    <button style="background:#16a34a;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:13px;font-weight:600;cursor:pointer" onclick="(function(){var p=prompt('Contraseña para actualizar datos:');if(p==='m7595052'){document.getElementById('excel-input').click();}else if(p!==null){alert('Contraseña incorrecta.');}})()">⬆ Actualizar datos</button>
+    <button style="background:#16a34a;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:13px;font-weight:600;cursor:pointer" onclick="openUpdateModal()">⬆ Actualizar datos</button>
     <input type="file" id="excel-input" accept=".xlsx,.xls" style="display:none" onchange="procesarNuevoExcel(this)">
   </div>
 </header>
@@ -1071,6 +1071,21 @@ table.data-table tr:hover td { background: rgba(27,58,92,.04); }
 </div>
 
 </main>
+
+<!-- MODAL CONTRASEÑA ACTUALIZAR -->
+<div id="pwd-modal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.55);align-items:center;justify-content:center">
+  <div style="background:var(--surface);border-radius:16px;padding:28px;width:min(340px,92vw);box-shadow:0 8px 40px rgba(0,0,0,.3)">
+    <h3 style="margin:0 0 16px;color:var(--text);font-size:16px">🔒 Actualizar datos</h3>
+    <input type="password" id="pwd-input" placeholder="Contraseña"
+      style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--bg);color:var(--text);box-sizing:border-box;margin-bottom:8px;outline:none"
+      onkeydown="if(event.key==='Enter')confirmUpdate()">
+    <div id="pwd-error" style="color:#dc2626;font-size:12px;margin-bottom:10px;display:none">Contraseña incorrecta.</div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="closePwdModal()" style="padding:7px 14px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text);cursor:pointer;font-size:13px">Cancelar</button>
+      <button onclick="confirmUpdate()" style="padding:7px 16px;border:none;border-radius:6px;background:#16a34a;color:#fff;cursor:pointer;font-size:13px;font-weight:600">Continuar</button>
+    </div>
+  </div>
+</div>
 
 <!-- MODAL ACTUALIZAR EXCEL -->
 <div id="upd-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);align-items:center;justify-content:center">
@@ -7790,6 +7805,25 @@ function _generarYDescargar(newD, newDT) {
     '✅ Archivo descargado con <strong>' + newD.kpis.total + ' personas</strong> de ' +
     newD.barrios.length + ' barrios.<br>Reemplazá el archivo en tu carpeta y subilo a GitHub.';
   document.getElementById('upd-msg').style.display = 'block';
+}
+
+function openUpdateModal() {
+  document.getElementById('pwd-input').value = '';
+  document.getElementById('pwd-error').style.display = 'none';
+  document.getElementById('pwd-modal').style.display = 'flex';
+  setTimeout(function(){ document.getElementById('pwd-input').focus(); }, 50);
+}
+function closePwdModal() {
+  document.getElementById('pwd-modal').style.display = 'none';
+}
+function confirmUpdate() {
+  if (document.getElementById('pwd-input').value === 'm7595052') {
+    closePwdModal();
+    document.getElementById('excel-input').click();
+  } else {
+    document.getElementById('pwd-error').style.display = 'block';
+    document.getElementById('pwd-input').select();
+  }
 }
 
 function _mostrarProgreso(msg) {
