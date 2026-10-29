@@ -6587,7 +6587,7 @@ function _updateTemploAlertas(rows) {
   personas.forEach(function(p) {
     var meses=p.meses||0, nivel=p.nivelTemplo||'', estado=p.estadoRec||'';
     if (nivel.indexOf('Sin rec')!==-1) { if(meses>=12) criticoUrgente.push(p); else critico.push(p); }
-    else if (nivel.indexOf('Vencida')!==-1) {
+    else if (nivel.indexOf('vencida')!==-1) {
       if(estado==='Vencida >3 meses') atencion3.push(p);
       else if(estado==='Vencida <3 meses'||estado==='Vencida <1 mes') atencion1.push(p);
     }
@@ -6624,16 +6624,46 @@ function _updateTemploAlertas(rows) {
 // TEMPLO KPIs + CHARTS + TABLA BARRIO (filtro global)
 // ─────────────────────────────────────────────────────────────────────
 function _updateTemploKPIs(rows) {
-  var nombres = new Set(rows.map(function(r){ return r.nombre; }));
-  var personas = DT.tabla_templo.filter(function(p){ return nombres.has(p.nombre); });
-  var total = personas.length;
+  // NOTA: DT.tabla_templo sólo contiene personas CON algún tipo de recomendación.
+  // Las personas "sin recomendación" (Crítico) NO están ahí.
+  // Por eso usamos DT.templo_barrio y DT.templo_barrio_detalle (datos precomputados por barrio)
+  // que sí incluyen a todos.
 
-  // KPI counts — usar indexOf porque nivelTemplo tiene valores como 'Sin rec.', 'Rec. vencida', 'Prox. a vencer', 'Rec. activa'
-  var critico  = personas.filter(function(p){ return (p.nivelTemplo||'').indexOf('Sin rec')!==-1; }).length;
-  var atencion = personas.filter(function(p){ return (p.nivelTemplo||'').indexOf('Vencida')!==-1; }).length;
-  var normal   = personas.filter(function(p){ var n=p.nivelTemplo||''; return n.indexOf('Activa')!==-1||n.indexOf('Prox')!==-1||n.indexOf('prox')!==-1; }).length;
-  var investidos = personas.filter(function(p){ return p.investido === 'Sí'; }).length;
-  var sellados   = personas.filter(function(p){ return p.sellado   === 'Sí'; }).length;
+  // Barrios presentes en los datos filtrados
+  var barrioSet = {};
+  rows.forEach(function(r){ barrioSet[r.barrio] = true; });
+  var barrios = Object.keys(barrioSet);
+
+  // Acumular totales y detalle por barrio
+  var critico=0, atencion=0, normal=0, total=0, investidos=0, sellados=0;
+  var act=0, vp=0, v1=0, v3=0, vm=0, sr=0;
+  var filteredBarrioMap = {};
+
+  barrios.forEach(function(b) {
+    var bd  = DT.templo_barrio[b];
+    var det = DT.templo_barrio_detalle[b];
+    if (!bd || !det) return;
+    critico    += bd['Crítico']  || 0;
+    atencion   += bd['Atención'] || 0;
+    normal     += bd['Normal']   || 0;
+    total      += bd.total       || 0;
+    investidos += bd.investidos  || 0;
+    sellados   += bd.sellados    || 0;
+    act += det.activa       || 0;
+    vp  += det.vence_pronto || 0;
+    v1  += det.ven_1        || 0;
+    v3  += det.ven_3        || 0;
+    vm  += det.ven_mas      || 0;
+    sr  += det.sin_rec      || 0;
+    filteredBarrioMap[b] = {
+      total:      det.total       || 0,
+      sin_rec:    det.sin_rec     || 0,
+      vencida:    (det.ven_1||0)+(det.ven_3||0)+(det.ven_mas||0),
+      activa:     (det.activa||0)+(det.vence_pronto||0),
+      investidos: det.investidos  || 0,
+      sellados:   det.sellados    || 0
+    };
+  });
 
   // Update KPI values
   var eC=document.getElementById('tt-critico');   if(eC) eC.textContent=critico;
@@ -6645,15 +6675,8 @@ function _updateTemploKPIs(rows) {
   var eAS=document.getElementById('tt-atencion-sub'); if(eAS) eAS.textContent=total?Math.round(atencion/total*100)+'% del total':'—';
   var eNS=document.getElementById('tt-normal-sub');   if(eNS) eNS.textContent=total?Math.round(normal/total*100)+'% del total':'—';
 
-  // Update donut de estados
-  var estVals = [
-    personas.filter(function(p){ return p.estadoRec==='Activa'; }).length,
-    personas.filter(function(p){ return p.estadoRec==='Vence pronto'; }).length,
-    personas.filter(function(p){ return p.estadoRec==='Vencida <1 mes'; }).length,
-    personas.filter(function(p){ return p.estadoRec==='Vencida <3 meses'; }).length,
-    personas.filter(function(p){ return p.estadoRec==='Vencida >3 meses'; }).length,
-    personas.filter(function(p){ return (p.nivelTemplo||'').indexOf('Sin rec')!==-1; }).length
-  ];
+  // Update donut de estados (activa, vence_pronto, ven_1, ven_3, ven_mas, sin_rec)
+  var estVals = [act, vp, v1, v3, vm, sr];
   if (window._chTemploEstados) {
     window._chTemploEstados.data.datasets[0].data = estVals;
     window._chTemploEstados.update();
@@ -6664,37 +6687,17 @@ function _updateTemploKPIs(rows) {
     }
   }
 
-  // Update stacked bar chart por barrio
-  var barrioMap = {};
-  personas.forEach(function(p) {
-    if (!barrioMap[p.barrio]) barrioMap[p.barrio] = { critico:0, atencion:0, normal:0 };
-    var _bn=p.nivelTemplo||'';
-    if (_bn.indexOf('Sin rec')!==-1)       barrioMap[p.barrio].critico++;
-    else if (_bn.indexOf('Vencida')!==-1)  barrioMap[p.barrio].atencion++;
-    else if (_bn.indexOf('Activa')!==-1||_bn.indexOf('Prox')!==-1||_bn.indexOf('prox')!==-1) barrioMap[p.barrio].normal++;
-  });
-  var labels = Object.keys(barrioMap);
+  // Update stacked bar chart por barrio (desde templo_barrio precomputado)
+  var labels = barrios.filter(function(b){ return DT.templo_barrio[b] && (DT.templo_barrio[b].total||0)>0; });
   if (window._chTemploBarrio) {
     window._chTemploBarrio.data.labels = labels;
-    window._chTemploBarrio.data.datasets[0].data = labels.map(function(b){ return barrioMap[b].critico; });
-    window._chTemploBarrio.data.datasets[1].data = labels.map(function(b){ return barrioMap[b].atencion; });
-    window._chTemploBarrio.data.datasets[2].data = labels.map(function(b){ return barrioMap[b].normal; });
+    window._chTemploBarrio.data.datasets[0].data = labels.map(function(b){ return (DT.templo_barrio[b]||{})['Crítico']||0; });
+    window._chTemploBarrio.data.datasets[1].data = labels.map(function(b){ return (DT.templo_barrio[b]||{})['Atención']||0; });
+    window._chTemploBarrio.data.datasets[2].data = labels.map(function(b){ return (DT.templo_barrio[b]||{})['Normal']||0; });
     window._chTemploBarrio.update();
   }
 
-  // Build filtered "Detalle por barrio" data for renderTemploBarrio
-  var filteredBarrioMap = {};
-  personas.forEach(function(p) {
-    if (!filteredBarrioMap[p.barrio]) filteredBarrioMap[p.barrio] = { total:0, sin_rec:0, vencida:0, activa:0, investidos:0, sellados:0 };
-    var d = filteredBarrioMap[p.barrio];
-    d.total++;
-    var _dn=p.nivelTemplo||'';
-    if (_dn.indexOf('Sin rec')!==-1)       d.sin_rec++;
-    else if (_dn.indexOf('Vencida')!==-1)  d.vencida++;
-    else if (_dn.indexOf('Activa')!==-1||_dn.indexOf('Prox')!==-1||_dn.indexOf('prox')!==-1) d.activa++;
-    if (p.investido==='Sí') d.investidos++;
-    if (p.sellado==='Sí')   d.sellados++;
-  });
+  // Tabla "Detalle por barrio"
   window._temploBarrioFiltered = Object.keys(filteredBarrioMap).length ? filteredBarrioMap : null;
   renderTemploBarrio();
 }
@@ -6840,7 +6843,7 @@ function renderTemploTabla(){
   var pages = Math.ceil(rows.length/TEMPLO_PER_PAGE);
   if(temploPage>=pages) temploPage=0;
   var page = rows.slice(temploPage*TEMPLO_PER_PAGE,(temploPage+1)*TEMPLO_PER_PAGE);
-  function nivelBadge(n){ return n==='Crítico'?'<span class="badge badge-alert">⚠ Crítico</span>':n==='Atención'?'<span class="badge badge-warn">⚠ Atención</span>':'<span class="badge badge-good">✓ Normal</span>'; }
+  function nivelBadge(n){ var nv=n||''; return nv.indexOf('Sin rec')!==-1?'<span class="badge badge-alert">⚠ Crítico</span>':nv.indexOf('vencida')!==-1?'<span class="badge badge-warn">⚠ Atención</span>':'<span class="badge badge-good">✓ Normal</span>'; }
   document.getElementById('templo-tabla-body').innerHTML = page.map(function(r){
     return '<tr>'
       +'<td><strong>'+r.nombre+'</strong></td>'
@@ -7161,7 +7164,7 @@ function renderSacAlertaBody() {
     if (nivel.indexOf('Sin rec') !== -1) {
       if (meses >= 12) criticoUrgente.push(p);
       else             critico.push(p);
-    } else if (nivel.indexOf('Vencida') !== -1) {
+    } else if (nivel.indexOf('vencida') !== -1) {
       if      (estado === 'Vencida >3 meses')  atencion3.push(p);
       else if (estado === 'Vencida <3 meses' || estado === 'Vencida <1 mes') atencion1.push(p);
     } else if (nivel.indexOf('Prox') !== -1 || nivel.indexOf('prox') !== -1) {
@@ -7549,8 +7552,8 @@ function _buildPDF(barriosList, incKpi, incBaut, incSac, incTemplo, incAlertas) 
 
   // templo
   var sinRec     = temploPer.filter(function(p){ return (p.nivelTemplo||'').indexOf('Sin rec') !== -1; }).length;
-  var vencida    = temploPer.filter(function(p){ return (p.nivelTemplo||'').indexOf('Vencida') !== -1; }).length;
-  var activa     = temploPer.filter(function(p){ return (p.nivelTemplo||'').indexOf('Activa') !== -1; }).length;
+  var vencida    = temploPer.filter(function(p){ return (p.nivelTemplo||'').indexOf('vencida') !== -1; }).length;
+  var activa     = temploPer.filter(function(p){ return (p.nivelTemplo||'').indexOf('activa') !== -1; }).length;
   var proxVencer = temploPer.filter(function(p){ return (p.nivelTemplo||'').indexOf('Prox') !== -1 || (p.nivelTemplo||'').indexOf('prox') !== -1; }).length;
 
   // alertas sacerdocio (same logic as buildSacAlertas but filtered)
@@ -7571,7 +7574,7 @@ function _buildPDF(barriosList, incKpi, incBaut, incSac, incTemplo, incAlertas) 
     }
   });
   var temploAlerts = temploPer.filter(function(p){
-    return (p.nivelTemplo||'').indexOf('Sin rec') !== -1 || (p.nivelTemplo||'').indexOf('Vencida') !== -1;
+    return (p.nivelTemplo||'').indexOf('Sin rec') !== -1 || (p.nivelTemplo||'').indexOf('vencida') !== -1;
   });
 
   // ── KPIs ─────────────────────────────────────────────────────────────
@@ -7925,8 +7928,8 @@ function _buildEstacaPDF(incKpi, incBaut, incSac, incTemplo, incAlertas) {
       checkY(8);
       var tp=(DT.tabla_templo||[]).filter(function(p){ return p.barrio===b; });
       var sinR=tp.filter(function(p){ return (p.nivelTemplo||'').indexOf('Sin rec')!==-1; }).length;
-      var venc=tp.filter(function(p){ return (p.nivelTemplo||'').indexOf('Vencida')!==-1; }).length;
-      var act=tp.filter(function(p){ return (p.nivelTemplo||'').indexOf('Activa')!==-1; }).length;
+      var venc=tp.filter(function(p){ return (p.nivelTemplo||'').indexOf('vencida')!==-1; }).length;
+      var act=tp.filter(function(p){ return (p.nivelTemplo||'').indexOf('activa')!==-1; }).length;
       var pctA=tp.length?Math.round(act/tp.length*100):0;
       var tvals=[b,tp.length,sinR,venc,act,pctA+'%'];
       tcx=margin;
@@ -7964,7 +7967,7 @@ function _buildEstacaPDF(incKpi, incBaut, incSac, incTemplo, incAlertas) {
       });
       var temploPer=(DT.tabla_templo||[]).filter(function(p){ return p.barrio===b; });
       var tCrit=temploPer.filter(function(p){ return (p.nivelTemplo||'').indexOf('Sin rec')!==-1; }).length;
-      var tNar=temploPer.filter(function(p){ return (p.nivelTemplo||'').indexOf('Vencida')!==-1; }).length;
+      var tNar=temploPer.filter(function(p){ return (p.nivelTemplo||'').indexOf('vencida')!==-1; }).length;
       if(sacCrit+sacNar+sacAmar+tCrit+tNar===0) return;
       checkY(10);
       doc.setFontSize(8.5); doc.setFont('helvetica','bold'); setColor('#1a1a2e','text');
