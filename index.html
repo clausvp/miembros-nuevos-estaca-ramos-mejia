@@ -708,23 +708,23 @@ table.data-table tr:hover td { background: rgba(27,58,92,.04); }
   <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); margin-bottom:20px">
     <div class="kpi-card">
       <div class="kpi-label">Total hombres bautizados</div>
-      <div class="kpi-value">86</div>
-      <div class="kpi-sub">41.5% del total</div>
+      <div class="kpi-value" id="sac-kpi-total">86</div>
+      <div class="kpi-sub" id="sac-kpi-total-sub">41.5% del total</div>
     </div>
     <div class="kpi-card kpi-good">
       <div class="kpi-label">Con Melquisedec</div>
-      <div class="kpi-value">10</div>
-      <div class="kpi-sub">11.6% de los hombres</div>
+      <div class="kpi-value" id="sac-kpi-melq">10</div>
+      <div class="kpi-sub" id="sac-kpi-melq-sub">11.6% de los hombres</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Con Aarónico</div>
-      <div class="kpi-value">30</div>
-      <div class="kpi-sub">34.9% de los hombres</div>
+      <div class="kpi-value" id="sac-kpi-aaron">30</div>
+      <div class="kpi-sub" id="sac-kpi-aaron-sub">34.9% de los hombres</div>
     </div>
     <div class="kpi-card kpi-warn">
       <div class="kpi-label">No ordenados</div>
-      <div class="kpi-value">46</div>
-      <div class="kpi-sub">53.5% de los hombres</div>
+      <div class="kpi-value" id="sac-kpi-nord">46</div>
+      <div class="kpi-sub" id="sac-kpi-nord-sub">53.5% de los hombres</div>
     </div>
   </div>
 
@@ -760,7 +760,7 @@ table.data-table tr:hover td { background: rgba(27,58,92,.04); }
   <div class="chart-row cols-2">
     <div class="chart-card">
       <div class="chart-title">Distribución de oficios del sacerdocio</div>
-      <div class="chart-sub">Solo hombres bautizados (86)</div>
+      <div class="chart-sub" id="sac-donut-sub">Solo hombres bautizados (86)</div>
       <div class="chart-wrap" style="height:200px"><canvas id="ch-sac-donut"></canvas></div>
       <div class="donut-legend" id="sac-legend"></div>
     </div>
@@ -800,13 +800,13 @@ table.data-table tr:hover td { background: rgba(27,58,92,.04); }
   <div class="alert-box">
     <div class="alert-icon">⚠</div>
     <div class="alert-text">
-      <strong>71 personas bautizadas hace más de 6 meses no muestran ningún indicador de progresión</strong>: sin llamamiento, sin recomendación para el templo y sin ordenación al sacerdocio (en el caso de hombres). Son el 50% de quienes llevan más de 6 meses en la Iglesia. Esta lista está ordenada de más antigua a más reciente para priorizar la atención pastoral.
+      <strong id="alerta-banner-count">71 personas bautizadas hace más de 6 meses</strong> no muestran ningún indicador de progresión: sin llamamiento, sin recomendación para el templo y sin ordenación al sacerdocio (en el caso de hombres). Son el 50% de quienes llevan más de 6 meses en la Iglesia. Esta lista está ordenada de más antigua a más reciente para priorizar la atención de ministración.
     </div>
   </div>
 
   <div class="chart-card">
     <div class="table-toolbar">
-      <span style="font-size:.8rem; font-weight:600; color:var(--text)">71 personas — ordenadas por meses en la Iglesia ↓</span>
+      <span style="font-size:.8rem; font-weight:600; color:var(--text)" id="alerta-toolbar-count">71 personas — ordenadas por meses en la Iglesia ↓</span>
       <input class="search-box" type="text" id="alerta-search" placeholder="Buscar nombre o barrio…" oninput="renderAlerta()">
     </div>
     <div class="table-wrap">
@@ -838,26 +838,26 @@ table.data-table tr:hover td { background: rgba(27,58,92,.04); }
     <div class="kpi-card kpi-warn">
       <div class="kpi-label">&#9888; Crítico — sin rec.</div>
       <div class="kpi-value" id="tt-critico">124</div>
-      <div class="kpi-sub">60% del total</div>
+      <div class="kpi-sub" id="tt-critico-sub">60% del total</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">&#9888; Atención — rec. vencida</div>
       <div class="kpi-value" id="tt-atencion" style="color:var(--amber)">14</div>
-      <div class="kpi-sub">6.8% del total</div>
+      <div class="kpi-sub" id="tt-atencion-sub">6.8% del total</div>
     </div>
     <div class="kpi-card kpi-good">
       <div class="kpi-label">&#10003; Normal — rec. activa</div>
       <div class="kpi-value" id="tt-normal">69</div>
-      <div class="kpi-sub">33.3% del total</div>
+      <div class="kpi-sub" id="tt-normal-sub">33.3% del total</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Investidos en el templo</div>
-      <div class="kpi-value">1</div>
+      <div class="kpi-value" id="tt-investidos">1</div>
       <div class="kpi-sub">Solo con rec. activa</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Sellados al cónyuge</div>
-      <div class="kpi-value">0</div>
+      <div class="kpi-value" id="tt-sellados">0</div>
       <div class="kpi-sub">&mdash;</div>
     </div>
   </div>
@@ -6513,6 +6513,26 @@ function _updateSacerdocio(rows) {
     window._chSacBarrio.update();
   }
   renderSacBody();
+  // Update Sacerdocio KPI cards
+  var hombresF = rows.filter(function(r){ return r.sexo === 'Hombre'; });
+  var totalH = hombresF.length;
+  var totalAll = rows.length;
+  var melqC = hombresF.filter(function(r){ return r.sacerdocio === 'Melquisedec'; }).length;
+  var aaronC = hombresF.filter(function(r){ return r.sacerdocio === 'Aarónico'; }).length;
+  var nordC = hombresF.filter(function(r){ return r.sacerdocio !== 'Melquisedec' && r.sacerdocio !== 'Aarónico'; }).length;
+  var pctTotal = totalAll ? Math.round(totalH/totalAll*1000)/10 : 0;
+  var pctMelq  = totalH   ? Math.round(melqC/totalH*1000)/10   : 0;
+  var pctAaron = totalH   ? Math.round(aaronC/totalH*1000)/10  : 0;
+  var pctNord  = totalH   ? Math.round(nordC/totalH*1000)/10   : 0;
+  var elT=document.getElementById('sac-kpi-total');   if(elT) elT.textContent=totalH;
+  var elTS=document.getElementById('sac-kpi-total-sub'); if(elTS) elTS.textContent=pctTotal+'% del total';
+  var elM=document.getElementById('sac-kpi-melq');    if(elM) elM.textContent=melqC;
+  var elMS=document.getElementById('sac-kpi-melq-sub');  if(elMS) elMS.textContent=pctMelq+'% de los hombres';
+  var elA=document.getElementById('sac-kpi-aaron');   if(elA) elA.textContent=aaronC;
+  var elAS=document.getElementById('sac-kpi-aaron-sub'); if(elAS) elAS.textContent=pctAaron+'% de los hombres';
+  var elN=document.getElementById('sac-kpi-nord');    if(elN) elN.textContent=nordC;
+  var elNS=document.getElementById('sac-kpi-nord-sub');  if(elNS) elNS.textContent=pctNord+'% de los hombres';
+  var elDS=document.getElementById('sac-donut-sub');  if(elDS) elDS.textContent='Solo hombres bautizados ('+totalH+')';
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -6543,7 +6563,7 @@ function _updateSacAlertas(rows) {
     + mkChip('🔴', mqRojo.length,    'Con Aarónico, sin Melquisedec (&gt;15 m)','#FEE2E2', '#DC2626')
     + mkChip('🟠', mqNaranja.length, 'Con Aarónico, sin Melquisedec (12–15 m)', '#FFF3E0', '#D97706')
     + '</div>';
-  document.getElementById('sac-alerta-sub').textContent = total_alerta+' persona'+(total_alerta!==1?'s':'')+' en situación de seguimiento pastoral';
+  document.getElementById('sac-alerta-sub').textContent = total_alerta+' persona'+(total_alerta!==1?'s':'')+' en situación de seguimiento de ministración';
   window._sacAlertaRows = [];
   function addR(list,track,sit,niv,color,bg){ list.forEach(function(p){ window._sacAlertaRows.push({nombre:p.nombre,barrio:p.barrio,meses:p.meses,situacion:sit,nivel:niv,track:track,color:color,bg:bg}); }); }
   addR(aaRojo,    'aa-rojo',    'Sin Aarónico',               '🔴 Crítico ('+aaRojo.length+')',    '#DC2626','#FEE2E2');
@@ -6599,6 +6619,83 @@ function _updateTemploAlertas(rows) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
+// TEMPLO KPIs + CHARTS + TABLA BARRIO (filtro global)
+// ─────────────────────────────────────────────────────────────────────
+function _updateTemploKPIs(rows) {
+  var nombres = new Set(rows.map(function(r){ return r.nombre; }));
+  var personas = DT.tabla_templo.filter(function(p){ return nombres.has(p.nombre); });
+  var total = personas.length;
+
+  // KPI counts
+  var critico  = personas.filter(function(p){ return p.nivelTemplo === 'Crítico';  }).length;
+  var atencion = personas.filter(function(p){ return p.nivelTemplo === 'Atención'; }).length;
+  var normal   = personas.filter(function(p){ return p.nivelTemplo === 'Normal';   }).length;
+  var investidos = personas.filter(function(p){ return p.investido === 'Sí'; }).length;
+  var sellados   = personas.filter(function(p){ return p.sellado   === 'Sí'; }).length;
+
+  // Update KPI values
+  var eC=document.getElementById('tt-critico');   if(eC) eC.textContent=critico;
+  var eA=document.getElementById('tt-atencion');  if(eA) eA.textContent=atencion;
+  var eN=document.getElementById('tt-normal');    if(eN) eN.textContent=normal;
+  var eI=document.getElementById('tt-investidos');if(eI) eI.textContent=investidos;
+  var eS=document.getElementById('tt-sellados');  if(eS) eS.textContent=sellados;
+  var eCS=document.getElementById('tt-critico-sub');  if(eCS) eCS.textContent=total?Math.round(critico/total*100)+'% del total':'—';
+  var eAS=document.getElementById('tt-atencion-sub'); if(eAS) eAS.textContent=total?Math.round(atencion/total*100)+'% del total':'—';
+  var eNS=document.getElementById('tt-normal-sub');   if(eNS) eNS.textContent=total?Math.round(normal/total*100)+'% del total':'—';
+
+  // Update donut de estados
+  var estVals = [
+    personas.filter(function(p){ return p.estadoRec==='Activa'; }).length,
+    personas.filter(function(p){ return p.estadoRec==='Vence pronto'; }).length,
+    personas.filter(function(p){ return p.estadoRec==='Vencida <1 mes'; }).length,
+    personas.filter(function(p){ return p.estadoRec==='Vencida <3 meses'; }).length,
+    personas.filter(function(p){ return p.estadoRec==='Vencida >3 meses'; }).length,
+    personas.filter(function(p){ return p.nivelTemplo==='Crítico'; }).length
+  ];
+  if (window._chTemploEstados) {
+    window._chTemploEstados.data.datasets[0].data = estVals;
+    window._chTemploEstados.update();
+    var tleg = document.getElementById('templo-estados-legend');
+    if (tleg) {
+      var vals = tleg.querySelectorAll('.donut-legend-val');
+      estVals.forEach(function(v,i){ if(vals[i]) vals[i].textContent=v; });
+    }
+  }
+
+  // Update stacked bar chart por barrio
+  var barrioMap = {};
+  personas.forEach(function(p) {
+    if (!barrioMap[p.barrio]) barrioMap[p.barrio] = { critico:0, atencion:0, normal:0 };
+    if (p.nivelTemplo==='Crítico')       barrioMap[p.barrio].critico++;
+    else if (p.nivelTemplo==='Atención') barrioMap[p.barrio].atencion++;
+    else if (p.nivelTemplo==='Normal')   barrioMap[p.barrio].normal++;
+  });
+  var labels = Object.keys(barrioMap);
+  if (window._chTemploBarrio) {
+    window._chTemploBarrio.data.labels = labels;
+    window._chTemploBarrio.data.datasets[0].data = labels.map(function(b){ return barrioMap[b].critico; });
+    window._chTemploBarrio.data.datasets[1].data = labels.map(function(b){ return barrioMap[b].atencion; });
+    window._chTemploBarrio.data.datasets[2].data = labels.map(function(b){ return barrioMap[b].normal; });
+    window._chTemploBarrio.update();
+  }
+
+  // Build filtered "Detalle por barrio" data for renderTemploBarrio
+  var filteredBarrioMap = {};
+  personas.forEach(function(p) {
+    if (!filteredBarrioMap[p.barrio]) filteredBarrioMap[p.barrio] = { total:0, sin_rec:0, vencida:0, activa:0, investidos:0, sellados:0 };
+    var d = filteredBarrioMap[p.barrio];
+    d.total++;
+    if (p.nivelTemplo==='Crítico')       d.sin_rec++;
+    else if (p.nivelTemplo==='Atención') d.vencida++;
+    else if (p.nivelTemplo==='Normal')   d.activa++;
+    if (p.investido==='Sí') d.investidos++;
+    if (p.sellado==='Sí')   d.sellados++;
+  });
+  window._temploBarrioFiltered = Object.keys(filteredBarrioMap).length ? filteredBarrioMap : null;
+  renderTemploBarrio();
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // GLOBAL FILTERS
 // ─────────────────────────────────────────────────────────────────────
 function _applyAllTabFilters(filtered, b, s) {
@@ -6615,6 +6712,12 @@ function _applyAllTabFilters(filtered, b, s) {
   });
   alertaPage = 0;
   renderAlerta();
+  // Update Lista de Alerta banner counts
+  var alertaN = alertaData.length;
+  var elBanner = document.getElementById('alerta-banner-count');
+  if (elBanner) elBanner.textContent = alertaN + ' persona' + (alertaN!==1?'s':'') + ' bautizadas hace más de 6 meses';
+  var elToolbar = document.getElementById('alerta-toolbar-count');
+  if (elToolbar) elToolbar.textContent = alertaN + ' persona' + (alertaN!==1?'s':'') + ' — ordenadas por meses en la Iglesia ↓';
   // Tabla Completa
   renderTabla();
   // Templo tabla
@@ -6624,7 +6727,8 @@ function _applyAllTabFilters(filtered, b, s) {
   // Sacerdocio (charts + table + alertas)
   _updateSacerdocio(filtered);
   _updateSacAlertas(filtered);
-  // Templo alertas
+  // Templo KPIs + charts + tabla barrio + alertas
+  _updateTemploKPIs(filtered);
   _updateTemploAlertas(filtered);
 }
 
@@ -6667,7 +6771,7 @@ window._pageTemplateSource = '<!DOCTYPE html>\n' + document.documentElement.oute
   const barrios = Object.keys(DT.templo_barrio);
 
   // Chart: stacked por barrio
-  new Chart(document.getElementById('ch-templo-barrio'), {
+  window._chTemploBarrio = new Chart(document.getElementById('ch-templo-barrio'), {
     type:'bar',
     data:{
       labels: barrios,
@@ -6691,7 +6795,7 @@ window._pageTemplateSource = '<!DOCTYPE html>\n' + document.documentElement.oute
   var estLabels = ['Activa','Vence pronto','Vencida <1 mes','Vencida <3 meses','Vencida >3 meses','Sin recomendación'];
   var estVals = [DT.kpis_templo.activa, DT.kpis_templo.vence_pronto, DT.kpis_templo.ven_1, DT.kpis_templo.ven_3, DT.kpis_templo.ven_mas, DT.kpis_templo.sin_rec];
   var estColors = ['#27704A','#5AAA7A','#B07300','#D4A040','#932323','#C0BCB5'];
-  new Chart(document.getElementById('ch-templo-estados'), {
+  window._chTemploEstados = new Chart(document.getElementById('ch-templo-estados'), {
     type:'doughnut',
     data:{ labels:estLabels, datasets:[{ data:estVals, backgroundColor:estColors, borderWidth:2, borderColor:'var(--card)', hoverOffset:6 }] },
     options:{
@@ -6874,10 +6978,12 @@ var temploBarrioSort = { col: 'total', dir: -1 };
 
 function renderTemploBarrio() {
   if (!temploBarrioSort) temploBarrioSort = { col: 'total', dir: -1 };
-  var barrios = D.barrios;
+  var filtrado = window._temploBarrioFiltered;
+  var barrios = filtrado ? Object.keys(filtrado) : D.barrios;
   var rows = barrios.map(function(b) {
-    var d = DT.templo_barrio_detalle[b];
-    var vencida = (d.ven_1||0)+(d.ven_3||0)+(d.ven_mas||0)+(d.vence_pronto||0);
+    var d = filtrado ? filtrado[b] : DT.templo_barrio_detalle[b];
+    if (!d) return null;
+    var vencida = filtrado ? (d.vencida||0) : (d.ven_1||0)+(d.ven_3||0)+(d.ven_mas||0)+(d.vence_pronto||0);
     var pNormal = d.total ? Math.round(d.activa/d.total*100) : 0;
     return {
       barrio: b,
@@ -6889,7 +6995,7 @@ function renderTemploBarrio() {
       investidos: d.investidos || 0,
       sellados: d.sellados || 0
     };
-  });
+  }).filter(Boolean);
 
   rows.sort(function(a, b) {
     var av = a[temploBarrioSort.col], bv = b[temploBarrioSort.col];
@@ -6971,7 +7077,7 @@ function sortTemploBarrio(col) {
 
   // ── Sub text ──
   document.getElementById('sac-alerta-sub').textContent =
-    total_alerta + ' persona' + (total_alerta !== 1 ? 's' : '') + ' en situación de seguimiento pastoral';
+    total_alerta + ' persona' + (total_alerta !== 1 ? 's' : '') + ' en situación de seguimiento de ministración';
 
   // ── Build rows dataset ──
   window._sacAlertaRows = [];
