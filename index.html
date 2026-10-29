@@ -6586,11 +6586,13 @@ function _updateTemploAlertas(rows) {
   var criticoUrgente=[], critico=[], atencion3=[], atencion1=[], atencionProx=[];
   personas.forEach(function(p) {
     var meses=p.meses||0, nivel=p.nivelTemplo||'', estado=p.estadoRec||'';
-    if (nivel==='Crítico') { if(meses>=12) criticoUrgente.push(p); else critico.push(p); }
-    else if (nivel==='Atención') {
+    if (nivel.indexOf('Sin rec')!==-1) { if(meses>=12) criticoUrgente.push(p); else critico.push(p); }
+    else if (nivel.indexOf('Vencida')!==-1) {
       if(estado==='Vencida >3 meses') atencion3.push(p);
       else if(estado==='Vencida <3 meses'||estado==='Vencida <1 mes') atencion1.push(p);
-      else if(estado==='Vence pronto') atencionProx.push(p);
+    }
+    else if (nivel.indexOf('Prox')!==-1||nivel.indexOf('prox')!==-1) {
+      atencionProx.push(p);
     }
   });
   var total_alerta = criticoUrgente.length+critico.length+atencion3.length+atencion1.length+atencionProx.length;
@@ -6626,10 +6628,10 @@ function _updateTemploKPIs(rows) {
   var personas = DT.tabla_templo.filter(function(p){ return nombres.has(p.nombre); });
   var total = personas.length;
 
-  // KPI counts
-  var critico  = personas.filter(function(p){ return p.nivelTemplo === 'Crítico';  }).length;
-  var atencion = personas.filter(function(p){ return p.nivelTemplo === 'Atención'; }).length;
-  var normal   = personas.filter(function(p){ return p.nivelTemplo === 'Normal';   }).length;
+  // KPI counts — usar indexOf porque nivelTemplo tiene valores como 'Sin rec.', 'Rec. vencida', 'Prox. a vencer', 'Rec. activa'
+  var critico  = personas.filter(function(p){ return (p.nivelTemplo||'').indexOf('Sin rec')!==-1; }).length;
+  var atencion = personas.filter(function(p){ return (p.nivelTemplo||'').indexOf('Vencida')!==-1; }).length;
+  var normal   = personas.filter(function(p){ var n=p.nivelTemplo||''; return n.indexOf('Activa')!==-1||n.indexOf('Prox')!==-1||n.indexOf('prox')!==-1; }).length;
   var investidos = personas.filter(function(p){ return p.investido === 'Sí'; }).length;
   var sellados   = personas.filter(function(p){ return p.sellado   === 'Sí'; }).length;
 
@@ -6650,7 +6652,7 @@ function _updateTemploKPIs(rows) {
     personas.filter(function(p){ return p.estadoRec==='Vencida <1 mes'; }).length,
     personas.filter(function(p){ return p.estadoRec==='Vencida <3 meses'; }).length,
     personas.filter(function(p){ return p.estadoRec==='Vencida >3 meses'; }).length,
-    personas.filter(function(p){ return p.nivelTemplo==='Crítico'; }).length
+    personas.filter(function(p){ return (p.nivelTemplo||'').indexOf('Sin rec')!==-1; }).length
   ];
   if (window._chTemploEstados) {
     window._chTemploEstados.data.datasets[0].data = estVals;
@@ -6666,9 +6668,10 @@ function _updateTemploKPIs(rows) {
   var barrioMap = {};
   personas.forEach(function(p) {
     if (!barrioMap[p.barrio]) barrioMap[p.barrio] = { critico:0, atencion:0, normal:0 };
-    if (p.nivelTemplo==='Crítico')       barrioMap[p.barrio].critico++;
-    else if (p.nivelTemplo==='Atención') barrioMap[p.barrio].atencion++;
-    else if (p.nivelTemplo==='Normal')   barrioMap[p.barrio].normal++;
+    var _bn=p.nivelTemplo||'';
+    if (_bn.indexOf('Sin rec')!==-1)       barrioMap[p.barrio].critico++;
+    else if (_bn.indexOf('Vencida')!==-1)  barrioMap[p.barrio].atencion++;
+    else if (_bn.indexOf('Activa')!==-1||_bn.indexOf('Prox')!==-1||_bn.indexOf('prox')!==-1) barrioMap[p.barrio].normal++;
   });
   var labels = Object.keys(barrioMap);
   if (window._chTemploBarrio) {
@@ -6685,9 +6688,10 @@ function _updateTemploKPIs(rows) {
     if (!filteredBarrioMap[p.barrio]) filteredBarrioMap[p.barrio] = { total:0, sin_rec:0, vencida:0, activa:0, investidos:0, sellados:0 };
     var d = filteredBarrioMap[p.barrio];
     d.total++;
-    if (p.nivelTemplo==='Crítico')       d.sin_rec++;
-    else if (p.nivelTemplo==='Atención') d.vencida++;
-    else if (p.nivelTemplo==='Normal')   d.activa++;
+    var _dn=p.nivelTemplo||'';
+    if (_dn.indexOf('Sin rec')!==-1)       d.sin_rec++;
+    else if (_dn.indexOf('Vencida')!==-1)  d.vencida++;
+    else if (_dn.indexOf('Activa')!==-1||_dn.indexOf('Prox')!==-1||_dn.indexOf('prox')!==-1) d.activa++;
     if (p.investido==='Sí') d.investidos++;
     if (p.sellado==='Sí')   d.sellados++;
   });
@@ -7154,13 +7158,14 @@ function renderSacAlertaBody() {
     var nivel  = p.nivelTemplo || '';
     var estado = p.estadoRec || '';
 
-    if (nivel === 'Crítico') {
+    if (nivel.indexOf('Sin rec') !== -1) {
       if (meses >= 12) criticoUrgente.push(p);
       else             critico.push(p);
-    } else if (nivel === 'Atención') {
+    } else if (nivel.indexOf('Vencida') !== -1) {
       if      (estado === 'Vencida >3 meses')  atencion3.push(p);
       else if (estado === 'Vencida <3 meses' || estado === 'Vencida <1 mes') atencion1.push(p);
-      else if (estado === 'Vence pronto')      atencionProx.push(p);
+    } else if (nivel.indexOf('Prox') !== -1 || nivel.indexOf('prox') !== -1) {
+      atencionProx.push(p);
     }
   });
 
